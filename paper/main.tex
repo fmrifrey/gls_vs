@@ -1,0 +1,283 @@
+\documentclass[11pt]{article}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage[margin=1in]{geometry} % Reduced margins
+\usepackage{xcolor}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{hyperref}
+\usepackage{caption}
+\usepackage{multicol}
+\usepackage{dsfont}
+\usepackage{algorithmicx}
+\long\def\red#1{\bgroup \color{red}#1\egroup}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.5em}
+\title{\vspace{-2em}
+\bfseries\large
+A Statistical Approach for Dynamic MRI View Sharing Reconstruction and Uncertainty Quantification with Application to Looping Star fMRI
+\vspace{-1.5em}
+}
+\author{
+    \small
+David Frey, Jeffrey A. Fessler, Douglas C. Noll
+}
+\date{}
+\vspace{-1.5em}
+
+\begin{document}
+
+\maketitle
+
+\section{Theory}
+
+\subsection{Multi-channel MRI Acquisition}
+With given spatially and temporally varying object, $\rho(\vec{r},t) \in \mathbb{C}$ and coil sensitivity map of the $q$th channel, $c_q(\vec{r}) \in \mathbb{C}$, data is acquired at time $t$ as:
+\begin{equation} \label{eq:signal_eq}
+    S_q(t) = \int_{\Gamma} c_q(\vec{r}) \rho(\vec{r},t) e^{-j\vec{\omega}(t) \cdot \vec{r}} d\vec{r} + \epsilon_q(t)
+\end{equation}
+where $\vec{\omega}(t)$ is the k-space sampling trajectory, which is controlled by the time integral of the gradient waveforms, and therefore takes time to acquire sequentially.
+Thus, sampling fewer points in k-space will reduce the overall scan time.
+$\Gamma$ is the spatial support (field of view) determined by the RF excitation and coverage of receiver coil sensitivities.
+
+$\epsilon_q(t) \sim \mathcal{CN}(0, \sigma_q^2)$ represents homoscedastic thermal acquisition noise in the $q$th channel.
+Thermal noise is independent at each acquisition time point.
+However, it is most likely correlated across receiver channels with covariance matrix $\Psi$ due to hardware cross-talk and other physical affects \cite{triantafyllou_2017}.
+We often choose to work with coil-compressed and pre-whitened data \cite{zhang_2013}.
+Therefore, we can assume that the noise across channels is iid Complex Gaussian with variance $\sigma_\epsilon^2$ (i.e. $\Psi \approx \sigma_\epsilon^2 \mathbf{I}_Q$) for the purpose of this work.
+
+\subsection{Data Binning}
+The goal in dynamic MRI is to reconstruct a set of $N_\mathrm{frames}$ discrete frame-wise images of the object defined at time points $\{\tau_f\}_{f=1}^{N_\mathrm{frames}} \subset \mathbb{R}$,
+given $M$ k-space samples chronologically acquired at time points $\{\mathbf{t}_m\}_{m=1}^{M} \subset \mathbb{R}$.
+The corresponding signal vector is denoted $\mathbf{s} \in \mathbb{C}^{MQ}$. 
+
+To achieve this, the chronological set of k-space samples is partitioned into $N_\text{frames}$ temporal frames.
+Each frame $f$ is indexed by a subset of $\tilde{M}$ sample indices $\mathcal{M}_f \subset \{1, ..., M\}$, and the corresponding binning matrix $\mathbf{B}_f \in \{0,1\}^{\tilde{M} \times M}$ extracts these samples from a vector of length $M$.
+The full measurement vector $\mathbf{b} \in \mathbb{C}^{\tilde{M}QN_\mathrm{frames}}$ concatenates all binned samples across coils and frames:
+\begin{equation} \label{eq:binned_data}
+    \begin{aligned}
+        \mathbf{b} = &\operatorname{vec} \left(
+        \begin{bmatrix}
+            \mathbf{B}_1 \\ \mathbf{B}_2 \\ \vdots \\ \mathbf{B}_{N_\mathrm{frames}}
+        \end{bmatrix}
+        \begin{bmatrix}
+            S_1(\mathbf{t}_1) & S_2(\mathbf{t}_1) & ... & S_Q(\mathbf{t}_1) \\
+            S_1(\mathbf{t}_2) & S_2(\mathbf{t}_2) & ... & S_Q(\mathbf{t}_2) \\
+            \vdots & \vdots & \ddots & \vdots \\
+            S_1(\mathbf{t}_M) & S_2(\mathbf{t}_M) & ... & S_Q(\mathbf{t}_M) \\
+        \end{bmatrix}
+        \right) \\
+        = & \underbrace{\left( \mathbf{I}_Q \otimes \begin{bmatrix}
+            \mathbf{B}_1 \\ \mathbf{B}_2 \\ \vdots \\ \mathbf{B}_{N_\mathrm{frames}}
+        \end{bmatrix} \right)}_{\mathbf{B}}
+        \operatorname{vec} \left(
+        \underbrace{\begin{bmatrix}
+            S_1(\mathbf{t}_1) & S_2(\mathbf{t}_1) & ... & S_Q(\mathbf{t}_1) \\
+            S_1(\mathbf{t}_2) & S_2(\mathbf{t}_2) & ... & S_Q(\mathbf{t}_2) \\
+            \vdots & \vdots & \ddots & \vdots \\
+            S_1(\mathbf{t}_M) & S_2(\mathbf{t}_M) & ... & S_Q(\mathbf{t}_M) \\
+        \end{bmatrix}}_{\mathbf{s}}
+        \right)
+    \end{aligned}
+\end{equation}
+This construction enables any arbitrary binning or view-sharing strategy while ensuring that the measurement vector $\mathbf{b}$ reflects any overlap or redundancy.
+
+\subsection{Binned Acquisition Model} \label{sec:binned_acquisition_model}
+The forward acquisition and binning process can be modeled in discrete form as:
+\begin{equation} \label{eq:discrete_fwd}
+    \mathbf{b} = \mathbf{A}\mathbf{x} + \mathbf{B}\eta + \zeta
+\end{equation}
+$\mathbf{x} \in \mathbb{C}^{NN_\mathrm{frames}}$ denotes the vectorized dynamic image timeseries, where $N$ is the number of voxels to reconstruct.
+
+$\mathbf{A} \in \mathbb{C}^{\tilde{M}QN_\mathrm{frames} \times NN_\mathrm{frames}}$ denotes the dynamic acquisition model which can be formulated as a block-diagonal matrix:
+\begin{equation*}
+    \mathbf{A} = \begin{bmatrix}
+        \mathbf{A}_1 & \mathbf{0} & ... & \mathbf{0} \\
+        \mathbf{0} & \mathbf{A}_2 & ... & \mathbf{0} \\
+        \vdots & \vdots & \ddots & \vdots \\
+        \mathbf{0} & \mathbf{0} & ... & \mathbf{A}_{N_\mathrm{frames}}
+    \end{bmatrix}
+\end{equation*}
+where $\mathbf{A}_f \in \mathbb{C}^{\tilde{M}Q \times N}$ is the acquisition operator for frame $f$ reflecting a discretized form of Eq. \ref{eq:signal_eq} on the $N$-voxel discrete grid corresponding to $\mathbf{x}$, including coil sensitivity encoding and Fourier encoding at k-space coordinates $\{\vec{\omega}(\mathbf{t}_m)\}_{m \in \mathcal{M}_f}$.
+
+By construction, the forward model $\mathbf{A}\mathbf{x}$ predicts the measurements under the assumption that the object $\rho(\vec{r}, t)$ remains constant within each frame's time window, i.e., all samples assigned to a given frame are modeled with a single image representation $\mathbf{x}_f$.
+In reality, the object often evolves dynamically during this interval, especially for large bin sizes or in tissues subject to rapid motion.
+
+This mismatch between the simplified, frame-wise model and the true time-varying object introduces a model error, denoted $\zeta$, which is referred to as physiological noise \cite{triantafyllou_2017}:
+\begin{equation} \label{eq:zeta_def}
+    \begin{aligned}
+        \zeta = & \operatorname{vec} \left(
+            \left\{ \zeta_{f,q,m} \right\}_{f=1,...,N_\mathrm{frames};\ q = 1,...,Q;\ m \in \mathcal{M}_f}
+        \right), \\
+        \zeta_{f,q,m} = & \int_\Gamma c_q(\vec{r}) \left[ \rho(\vec{r},\tau_f) - \rho(\vec{r},\mathbf{t}_m) \right] e^{-j \vec{\omega}(\mathbf{t}_m) \cdot \vec{r}} d \vec{r}
+    \end{aligned}
+\end{equation}
+$\zeta$ is generally not measurable in practice.
+However, since $\zeta$ is formed from the aggregate effect of many small discrepancies, each arising from slight temporal offsets and spatial variations, the central limit theorem suggests that their sum can be well-approximated by a multivariate complex Gaussian random variable.
+Unlike homoscedastic thermal noise, we expect that the variance of $\zeta$ within each bin is likely higher for samples taken farther from the bin center, $\tau_f$, and that noise from nearby samples is likely to be correlated.
+To simplify the reconstruction problem, we represent $\zeta$ as a complex Gaussian random vector with covariance matrix $\Sigma_\zeta$ and attempt to characterize its covariance.
+
+$\eta \sim \mathcal{CN}(\mathbf{0},\sigma_\epsilon^2\mathbf{I}_{MQ})$ denotes chronologically acquired thermal noise measurements.
+We can derive that $\mathbf{B}\eta \sim \mathcal{CN}(\mathbf{0}, \sigma_\epsilon^2\mathbf{B}\mathbf{B}^T)$ (see proof in Appendix \ref{proofs}).
+
+\subsection{Maximum A Posteriori Reconstruction}
+We would like to estimate an image $\mathbf{x}_\mathrm{MAP} \in \mathbb{C}^{N^3N_\mathrm{frames}}$ which solves Eq. \ref{eq:discrete_fwd} with high probability, given the k-space measurements $\mathbf{b}$.
+This statistically optimal solution is called the Maximum A Posteriori (MAP) estimator:
+\begin{equation} \label{eq:map_estimator}
+    \mathbf{x}_\mathrm{MAP} = \underset{\mathbf{x}}{\operatorname{argmax}}\ p(\mathbf{x} | \mathbf{b})
+\end{equation}
+where $p(\mathbf{x} | \mathbf{b})$ denotes the posterior density function of $\mathbf{x}$ given $\mathbf{b}$.
+By Baye's Theorem:
+\begin{equation*}
+    p(\mathbf{x} |\mathbf{b}) = \frac{p(\mathbf{b} | \mathbf{x})}{p(\mathbf{b})}p(\mathbf{x})
+\end{equation*}
+
+$p(\mathbf{b} |\mathbf{x})$ is called the likelihood function, which can be formed from the model in Eq. \ref{eq:discrete_fwd}:
+\begin{align*}
+    p(\mathbf{b} | \mathbf{x}) = &\mathbb{P} (\mathbf{b} =\mathbf{A}\mathbf{x} + \mathbf{B}\eta + \zeta) \\
+    = &\mathbb{P}(\mathbf{B} \eta + \zeta = \mathbf{b} -\mathbf{A}\mathbf{x}) \\
+    = &f_{\mathbf{B}\eta + \zeta} \left( \mathbf{b} - \mathbf{A}\mathbf{x} \right)
+\end{align*}
+where $f_{\mathbf{B}\eta + \zeta}(\cdot) = f_{\mathbf{B}\eta} \circledast f_\zeta (\cdot): \mathbb{C}^{\tilde{M}QN_\mathrm{frames}} \to [0,1]$ is the probability density function of $\mathbf{B}\eta + \zeta$.
+Since $\mathbf{B}\eta$ and $\zeta$ are both multivariate complex Gaussian, $\mathbf{B}\eta+\zeta$ is also multivariate complex Gaussian with covariance matrix:
+\begin{equation} \label{eq:noise_covariance}
+    \begin{aligned}
+        \Sigma_{\mathbf{B}\eta+\zeta} = &\Sigma_{\mathbf{B}\eta}+\Sigma_\zeta \\
+        = &\sigma_\epsilon^2\mathbf{B}\mathbf{B}^T +\Sigma_\zeta \\
+        = & \operatorname{Cov}(\mathbf{b} - \mathbf{A}\mathbf{x})
+    \end{aligned}
+\end{equation}
+Then:
+\begin{align*}
+    p(\mathbf{b} | \mathbf{x}) = &f_{\mathbf{B}\eta+\zeta} \left( \mathbf{b} - \mathbf{A}\mathbf{x} \right) \\
+    = & \frac{\exp\left[ - (\mathbf{b} - \mathbf{A}\mathbf{x})^H \Sigma_{\mathbf{B}\eta+\zeta} ^{-1}(\mathbf{b} - \mathbf{A}\mathbf{x})\right]}{(\pi)^{\tilde{M}QN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{B}\eta+\zeta}|}}
+\end{align*}
+
+$p(\mathbf{x})$ is called the prior probability density function.
+This term allows us to incorporate other known information about the image by assuming a distribution of $\mathbf{x}$.
+If no knowledge of the image is known, we can simply enforce a multivariate complex Gaussian prior, $\mathbf{x} \sim \mathcal{CN}(0,\Sigma_\mathbf{x})$ to better condition the problem.
+With this prior, solving Eq. \ref{eq:map_estimator} is equivalent to solving the Tikhonov-regularized Generalized Least Squares (GLS) problem (see proof in Appendix \ref{proofs}):
+\begin{equation} \label{eq:map_gls_sol}
+    \mathbf{x}_\mathrm{MAP} = \underset{\mathbf{x}}{\operatorname{argmin}}\
+            \left\|\Sigma_{\mathbf{B}\eta + \zeta}^{-1/2}(\mathbf{b} - \mathbf{A}\mathbf{x})\right\|_2^2
+            + \left\|\Sigma_{\mathbf{x}}^{-1/2}\mathbf{x}\right\|_2^2
+\end{equation}
+This solution is robust to any artibrary binning strategy and is statistically optimal given a good estimate for $\Sigma_{\mathbf{B}\eta+\zeta}$ (we will discuss approaches for estimating the covariance in Section \ref{sec:estimating_noise_covariance}).
+Additionally, it is easily adaptable to other priors for more complex regularization techniques.
+
+\subsection{View Sharing Strategies}
+View-sharing reconstruction~\cite{riederer_1988} is commonly used in dynamic MRI to increase the effective k-space coverage of each frame without reducing temporal stride by reusing samples across adjacent temporal frames.
+This approach can accelerate imaging by mitigating aliasing artifacts in sparsely sampled regions of k-space.
+However, as the bin size (aperture) increases, dynamic changes in the object are averaged over a broader time interval, leading to increased temporal blurring.
+
+Using a basic binning stategy, k-space samples can be selected using a simple time-based window for each frame $f$:
+\begin{equation*}
+    \mathcal{M}_f = \left\{m: |\tau_f - \mathbf{t}_m| \leq \frac{1}{2} a \right\}, \quad f = 1, \ldots, N_\mathrm{frames}
+\end{equation*}
+where $a$ denotes the window aperture in units of time.
+
+In variable-density k-space acquisitions, it may be advantageous to adapt the window aperture based on k-space position.
+For example, in radial imaging, where sampling density increases near the k-space center, a k-space radius-dependent aperture can be used:
+\begin{equation*}
+    \mathcal{M}_f = \left\{m: |\tau_f - \mathbf{t}_m| \leq \frac{1}{2}a\left(|\vec{\omega}(\mathbf{t}_m)|\right) \right\}, \quad f = 1, \ldots, N_\mathrm{frames}
+\end{equation*}
+Here, the aperture $a(\cdot): [0,\pi]^{3} \to [0,1]$ is a function of k-space radius.
+
+\cite{barger_2002} proposed the a Tornado filter for filtered-back projection (FBP)-based view sharing reconstruction, which uses a smooth transition from narrow to wide windows, helping maintain temporal fidelity in the densely sampled center region while increasing the effective sampling in under-sampled outer regions of k-space.
+The Tornado filter can be implemented as a k-space radius-dependent aperture function using the following parameterization:
+\begin{equation*}
+    \begin{aligned}
+        &a(\omega;\ \omega_\mathrm{min},a_\mathrm{min},\omega_\mathrm{max},a_\mathrm{max},p) \\
+        = &\begin{cases}
+            a_\mathrm{min}, & \omega < \omega_\mathrm{min} \\
+            a_\mathrm{min} + (a_\mathrm{max}-a_\mathrm{min}) \left(\frac{\omega - \omega_\mathrm{min}}{\omega_\mathrm{max} - \omega_\mathrm{min}}\right)^p, & \omega_\mathrm{min} \leq \omega \leq \omega_\mathrm{max} \\
+            a_\mathrm{max}, & \omega > \omega_\mathrm{max}
+        \end{cases}
+    \end{aligned}
+\end{equation*}
+
+Despite their utility, a limitation of traditional view-sharing is that all samples within a bin are weighted equally, regardless of their temporal proximity to the frame’s reference time $\tau_f$.
+This constrains the window aperture in order to avoid excessive blurring.
+By explicitly modeling the covariance of physiological noise, $\Sigma_\zeta$, our framework captures the increased variance for samples farther from the frame center.
+Incorporating $\Sigma_\zeta$ into the MAP estimator (Eq.~\ref{eq:map_gls_sol}) allows downweighting of measurements with greater expected mismatch, so larger window apertures can be used to improve the k-space coverage of each frame without sacrificing temporal sharpness.
+
+\subsection{Estimating Noise Covariance} \label{sec:estimating_noise_covariance}
+
+\subsubsection{LSCAP Approach}
+The most general case could simultaneously solve for the image and noise covariance using the Least Squares Covariance Adjustment Problem (LSCAP) \cite{boyd_2002}:
+
+However, the LSCAP method is computationally expensive and slow to converge.
+We can estimate the noise covariance, or at least find an initial estimate using much simpler empirical techniques.
+
+\subsubsection{Navigator Approach}
+
+\subsubsection{Signal Informed Approach}
+
+\subsection{Uncertainty Quantification}
+Uncertainty quantification (UQ) plays a critical role in MRI research by enabling meaningful statistical analysis of reconstructed images. In clinical practice, knowing the degree of uncertainty can inform more confident diagnoses and guide decisions for follow-up analyses or repeat scans.
+However, many accelerated reconstruction techniques, such as compressed sensing, rely on complex regularization schemes and nonlinear optimization, making explicit calculation of posterior covariance challenging. Such cases often demand computationally intensive methods like Markov Chain Monte Carlo (MCMC) sampling to estimate uncertainty.
+In contrast, our statistical framework employs a simple Tikhonov regularizer, which permits analytic derivation of uncertainty at every reconstructed voxel and time frame. The posterior covariance matrix of the image estimate can be calculated explicitly (see Appendix~\ref{proofs} for derivation) as:
+\begin{equation} \label{eq:posterior_covariance}
+    \Sigma_{\mathbf{x}|\mathbf{b}} = \left(\mathbf{A}^H(\sigma_\epsilon^2\mathbf{B}\mathbf{B}^T + \Sigma_\zeta)^{-1}\mathbf{A} + \frac{1}{\sigma_\mathbf{x}^2}\mathbf{I}_{NN_\mathrm{frames}}\right)^{-1}
+\end{equation}
+Here, the diagonal elements of $\Sigma_{\mathbf{x}|\mathbf{b}}$ reflect the posterior variance for each voxel and time frame, providing a spatially and temporally resolved map of reconstruction uncertainty.
+
+\section{Methods}
+\subsection{Practical Implementation}
+\subsection{Virtual Phantom Experiments}
+\subsection{Looping Star fMRI Experiments}
+
+\section{Appendix}
+\subsection{Proofs} \label{proofs}
+\begin{proof}[Derivation of $\mathbf{B}\eta$ covariance matrix (Sec. \ref{sec:binned_acquisition_model})]
+    \begin{align*}
+        \operatorname{Cov} (\mathbf{B}\eta) = &\mathbb{E}[(\mathbf{B}\eta)(\mathbf{B}\eta)^H] + \mathbb{E}[\mathbf{B}\eta]\mathbb{E}[\mathbf{B}\eta]^H \\
+        = & \mathbf{B}\mathbb{E}[\eta\eta^H]\mathbf{B}^T + \mathbf{B}\mathbb{E}[\eta](\mathbf{B}\mathbb{E}[\eta])^H\\
+        = & \mathbf{B}(\mathbb{E}[\eta\eta^H] + \mathbb{E}[\eta]\mathbb{E}[\eta]^H)\mathbf{B}^T \\
+        = & \mathbf{B}(\sigma_\epsilon^2 \mathbf{I}_{MQ})\mathbf{B}^T 
+        = \sigma_\epsilon^2\mathbf{B}\mathbf{B}^T
+    \end{align*}
+\end{proof}
+\begin{proof}[Derivation of GLS problem from MAP estimator (Eq. \ref{eq:map_gls_sol})]
+    \begin{equation*}
+        \begin{aligned}
+            \mathbf{x}_\mathrm{MAP} = & \underset{\mathbf{x}}{\operatorname{argmax}}\ p(\mathbf{x} | \mathbf{b})
+            = \underset{\mathbf{x}}{\operatorname{argmax}}\ \frac{p(\mathbf{b} | \mathbf{x})}{p(\mathbf{b})}p(\mathbf{x}) \\
+            = & \underset{\mathbf{x}}{\operatorname{argmax}}\ p(\mathbf{b} | \mathbf{x}) p(\mathbf{x}) \\
+            = &\underset{\mathbf{x}}{\operatorname{argmax}}\ \log p(\mathbf{b} | \mathbf{x})
+            + \log p(\mathbf{x}) \quad \text{(since $\log(
+            \cdot)$ is monotonically increasing)} \\
+            = & \underset{\mathbf{x}}{\operatorname{argmax}}\
+            \log \frac{\exp\left[ - (\mathbf{b} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{b} - \mathbf{A}\mathbf{x})\right]}{(\pi)^{\tilde{M}QN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{B}\eta + \zeta} |}}
+            + \log \frac{\exp\left[ - \mathbf{x}^H\Sigma_{\mathbf{x}}^{-1}\mathbf{x} \right]}{(\pi)^{NN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{x}} |}} \\
+            = & \underset{\mathbf{x}}{\operatorname{argmax}}\
+            \log \left( \exp\left[ - (\mathbf{b} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{b} - \mathbf{A}\mathbf{x})\right] \right) - \log \left( (\pi)^{\tilde{M}QN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{B}\eta + \zeta} |} \right) \\
+            & + \log \left(\exp\left[ - \mathbf{x}^H\Sigma_{\mathbf{x}}^{-1}\mathbf{x} \right]\right) - \log \left((\pi)^{NN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{x}} |}\right) \\
+            = & \underset{\mathbf{x}}{\operatorname{argmax}}\
+            \log \left( \exp\left[ - (\mathbf{b} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{b} - \mathbf{A}\mathbf{x})\right] \right)
+            + \log \left(\exp\left[ - \mathbf{x}^H\Sigma_{\mathbf{x}}^{-1}\mathbf{x} \right]\right)\\
+            = & \underset{\mathbf{x}}{\operatorname{argmax}}\
+            - (\mathbf{b} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{b} - \mathbf{A}\mathbf{x})
+            - \mathbf{x}^H\Sigma_{\mathbf{x}}^{-1}\mathbf{x}\\
+            = & \underset{\mathbf{x}}{\operatorname{argmin}}\
+            (\mathbf{b} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{b} - \mathbf{A}\mathbf{x})
+            + \mathbf{x}^H\Sigma_{\mathbf{x}}^{-1}\mathbf{x}\\
+            = & \underset{\mathbf{x}}{\operatorname{argmin}}\
+            \left\|\Sigma_{\mathbf{B}\eta + \zeta}^{-1/2}(\mathbf{b} - \mathbf{A}\mathbf{x})\right\|_2^2
+            + \left\|\Sigma_{\mathbf{x}}^{-1/2}\mathbf{x}\right\|_2^2\\
+        \end{aligned}
+    \end{equation*}
+\end{proof}
+\begin{proof} [Derivation of posterior covariance (Eq. \ref{eq:posterior_covariance})]
+    \begin{equation*}
+        \begin{aligned}
+            \Sigma_{\mathbf{x}|\mathbf{b}} = & \mathbb{E}[\mathbf{x} | \mathbf{b}]
+        \end{aligned}
+    \end{equation*}
+\end{proof}
+
+\bibliographystyle{unsrt}  % or another style like unsrt, abbrv, etc.
+\bibliography{refs}
+
+\end{document}
