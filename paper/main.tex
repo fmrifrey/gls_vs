@@ -81,6 +81,19 @@ The full measurement vector $\mathbf{b} \in \mathbb{C}^{\tilde{M}QN_\mathrm{fram
         \right)
     \end{aligned}
 \end{equation}
+The binning structure is illustrated for a simple example in Fig. \ref{fig:binning}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=1\linewidth]{figures/fig_binning.png}
+    \captionsetup{width=0.85\linewidth}
+    \caption{
+        Binning process, illustrated for a toy example ($M=10,Q=1,\tilde{M}=4,N_\mathrm{frames}$).
+        Given sample index sets for each frame, $\mathcal{M}_1,\mathcal{M}_2,\mathcal{M}_3$, each corresponding binning matrix extracts the samples from the chronologically acquired measurement vector, $\mathbf{s}$.
+        Then, all binned samples are concatenated in $\mathbf{b}$.
+    }
+    \label{fig:binning}
+\end{figure}
+
 This construction enables any arbitrary binning or view-sharing strategy while ensuring that the measurement vector $\mathbf{b}$ reflects any overlap or redundancy.
 
 \subsection{Binned Acquisition Model} \label{sec:binned_acquisition_model}
@@ -204,11 +217,13 @@ Incorporating $\Sigma_\zeta$ into the MAP estimator (Eq.~\ref{eq:map_gls_sol}) a
 
 \subsection{Estimating Noise Covariance} \label{sec:estimating_noise_covariance}
 
-\subsubsection{LSCAP Approach}
-The most general case could simultaneously solve for the image and noise covariance using the Least Squares Covariance Adjustment Problem (LSCAP) \cite{boyd_2002}:
+\subsubsection{Residual Covariance Update Approach}
+The most general approach would consider any arbitrary noise covariance matrix, $\Sigma_{\mathbf{B}\eta + \zeta}$.
+If the covariance is unknown, we can solve the problem using gradient methods, and updating the covariance at each iteration based on the residual.
+I.e.:
 
 
-However, the LSCAP method is computationally expensive and slow to converge.
+However, the Covariance Update method is slow to converge.
 We can estimate the noise covariance, or at least find an initial estimate using much simpler empirical techniques.
 
 \subsubsection{Navigator Approach}

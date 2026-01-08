@@ -33,7 +33,7 @@
   ([xshift=-0.1cm,yshift=-0.0cm]svec-4-1.south east);
 \end{scope}
 \begin{scope}
-\filldraw[fill=yellow!70, opacity=0.4, draw=none]
+\filldraw[fill=green!50, opacity=0.4, draw=none]
   ([xshift=0.1cm,yshift=0.0cm]svec-4-1.north west) rectangle
   ([xshift=0.1cm,yshift=-0.0cm]svec-7-1.south east);
 \end{scope}
@@ -42,6 +42,15 @@
   ([xshift=-0.1cm,yshift=0.0cm]svec-7-1.north west) rectangle
   ([xshift=-0.1cm,yshift=-0.0cm]svec-10-1.south east);
 \end{scope}
+\draw [decorate,decoration={brace,mirror,amplitude=8pt},thick,blue!60]
+  ([xshift=-0.4cm]svec-1-1.north west) -- ([xshift=-0.4cm]svec-4-1.south west)
+  node[midway,left=7pt] {$\mathcal{M}_1 = \{1,2,3,4\}$};
+\draw [decorate,decoration={brace,mirror,amplitude=8pt},thick,green!80]
+  ([xshift=-0.3cm]svec-4-1.north west) -- ([xshift=-0.3cm]svec-7-1.south west)
+  node[midway,left=7pt] {$\mathcal{M}_2 = \{4,5,6,7\}$};
+\draw [decorate,decoration={brace,mirror,amplitude=8pt},thick,red!60]
+  ([xshift=-0.4cm]svec-7-1.north west) -- ([xshift=-0.4cm]svec-10-1.south west)
+  node[midway,left=7pt] {$\mathcal{M}_3 = \{7,8,9,10\}$};
 
 % Binning matrices
 \matrix (B2) [matrix of math nodes,right=of svec,left delimiter={[},right delimiter={]},xshift=1cm,nodes in empty cells] {
@@ -52,7 +61,7 @@
 };
 \node(smult2)[right=0.3cm of B2.east]{$\mathbf{s}$};
 \begin{scope}
-\filldraw[fill=yellow!70, opacity=0.4, draw=none]
+\filldraw[fill=green!50, opacity=0.4, draw=none]
   ([xshift=0.0cm,yshift=0.0cm]B2-1-4.north west) rectangle
   ([xshift=0.0cm,yshift=0.0cm]B2-4-7.south east);
 \end{scope}
@@ -64,7 +73,7 @@
     S_1(\mathbf{t}_7) \\
 };
 \begin{scope}
-\filldraw[fill=yellow!70, opacity=0.4, draw=none]
+\filldraw[fill=green!50, opacity=0.4, draw=none]
   ([xshift=0.0cm,yshift=0cm]sbin2-1-1.north west) rectangle
   ([xshift=0.0cm,yshift=0cm]sbin2-4-1.south east);
 \end{scope}
@@ -122,11 +131,11 @@
 \node[above=0.3cm of B1.north,align=center]{Binning matrices \\ ($\tilde{M}=4, N_\mathrm{frames}=3$)};
 
 \draw [decorate,decoration={brace,mirror,amplitude=8pt},thick]([yshift=-0.3cm]B1.south west) -- ([yshift=-0.3cm]B1.south east)
-  node[midway,below=7pt]{$\mathbf{B}_1$};
+  node[midway,below=7pt]{$\tilde{\mathbf{B}}_1$};
 \draw [decorate,decoration={brace,mirror,amplitude=8pt},thick]([yshift=-0.3cm]B2.south west) -- ([yshift=-0.3cm]B2.south east)
-  node[midway,below=7pt]{$\mathbf{B}_2$};
+  node[midway,below=7pt]{$\tilde{\mathbf{B}}_2$};
 \draw [decorate,decoration={brace,mirror,amplitude=8pt},thick]([yshift=-0.3cm]B3.south west) -- ([yshift=-0.3cm]B3.south east)
-  node[midway,below=7pt]{$\mathbf{B}_3$};
+  node[midway,below=7pt]{$\tilde{\mathbf{B}}_3$};
   
 % Raw signal vector s
 \matrix (bvec) [right=3cm of sbin2, matrix of math nodes,left delimiter={[},right delimiter={]},nodes in empty cells] {
@@ -153,7 +162,7 @@
   ([xshift=0cm,yshift=-0.0cm]bvec-4-1.south east);
 \end{scope}
 \begin{scope}
-\filldraw[fill=yellow!70, opacity=0.4, draw=none]
+\filldraw[fill=green!50, opacity=0.4, draw=none]
   ([xshift=0cm,yshift=0.0cm]bvec-5-1.north west) rectangle
   ([xshift=0cm,yshift=-0.0cm]bvec-8-1.south east);
 \end{scope}
