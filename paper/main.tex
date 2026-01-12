@@ -138,8 +138,6 @@ Unlike homoscedastic thermal noise, we expect that the variance of $\zeta$ withi
 To simplify the reconstruction problem, we represent $\zeta$ as a complex Gaussian random vector with covariance matrix $\Sigma_\zeta$ and attempt to characterize its covariance.
 
 $\eta \sim \mathcal{CN}(\mathbf{0},\sigma_\epsilon^2\mathbf{I}_{MQ})$ denotes chronologically acquired thermal noise measurements.
-We can derive the distribution $\mathbf{B}\eta \sim \mathcal{CN}(\mathbf{0}, \sigma_\epsilon^2\mathbf{B}\mathbf{B}^T)$ (see proof in Appendix \ref{proofs}).
-It is important to note that $\mathbf{B}\mathbf{B}^T$ is singular in cases where bins contain overlapping samples, so the complex multivariate Gaussian distribution must be generalized to the singular covariance case.
 
 \subsection{Maximum A Posteriori Reconstruction}
 We would like to estimate an image $\mathbf{x}_\mathrm{MAP} \in \mathbb{C}^{N^3N_\mathrm{frames}}$ which solves Eq. \ref{eq:discrete_fwd} with high probability, given the k-space measurements $\mathbf{b}$.
