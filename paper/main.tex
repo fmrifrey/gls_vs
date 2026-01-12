@@ -37,71 +37,63 @@ With given spatially and temporally varying object, $\rho(\vec{r},t) \in \mathbb
 \begin{equation} \label{eq:signal_eq}
     S_q(t) = \int_{\Gamma} c_q(\vec{r}) \rho(\vec{r},t) e^{-j\vec{\omega}(t) \cdot \vec{r}} d\vec{r} + \epsilon_q(t)
 \end{equation}
-where $\vec{\omega}(t)$ is the k-space sampling trajectory, which is controlled by the time integral of the gradient waveforms, and therefore takes time to acquire sequentially.
+where $\vec{\omega}(t) \in [-\pi,\pi]^{d}$ is the k-space sampling trajectory in radians, which is controlled by the time integral of the gradient waveforms, and therefore takes time to acquire sequentially.
 Thus, sampling fewer points in k-space will reduce the overall scan time.
-$\Gamma$ is the spatial support (field of view) determined by the RF excitation and coverage of receiver coil sensitivities.
+$\Gamma \subset \mathbb{R}^d$ is the spatial support (field of view) determined by the RF excitation and coverage of receiver coil sensitivities.
+$d \in \mathbb{Z}$ denotes the number of spatial dimensions.
 
 $\epsilon_q(t) \sim \mathcal{CN}(0, \sigma_q^2)$ represents homoscedastic thermal acquisition noise in the $q$th channel.
 Thermal noise is independent at each acquisition time point.
-However, it is most likely correlated across receiver channels with covariance matrix $\Psi$ due to hardware cross-talk and other physical affects \cite{triantafyllou_2017}.
+However, it is most likely correlated across receiver channels with covariance matrix $\Psi \in \mathbb{R}^Q$ due to hardware cross-talk and other physical affects \cite{triantafyllou_2017}.
 We often choose to work with coil-compressed and pre-whitened data \cite{zhang_2013}.
-Therefore, we can assume that the noise across channels is iid Complex Gaussian with variance $\sigma_\epsilon^2$ (i.e. $\Psi \approx \sigma_\epsilon^2 \mathbf{I}_Q$) for the purpose of this work.
+Therefore, we can assume that the noise across channels is iid complex Gaussian with variance $\sigma_\epsilon^2$ (i.e. $\Psi \approx \sigma_\epsilon^2 \mathbf{I}_Q$) for the purpose of this work.
 
 \subsection{Data Binning}
 The goal in dynamic MRI is to reconstruct a set of $N_\mathrm{frames}$ discrete frame-wise images of the object defined at time points $\{\tau_f\}_{f=1}^{N_\mathrm{frames}} \subset \mathbb{R}$,
 given $M$ k-space samples chronologically acquired at time points $\{\mathbf{t}_m\}_{m=1}^{M} \subset \mathbb{R}$.
-The corresponding signal vector is denoted $\mathbf{s} \in \mathbb{C}^{MQ}$. 
+The corresponding raw signal vector is denoted $\mathbf{b} \in \mathbb{C}^{MQ}$. 
 
 To achieve this, the chronological set of k-space samples is partitioned into $N_\text{frames}$ temporal frames.
 Each frame $f$ is indexed by a subset of $\tilde{M}$ sample indices $\mathcal{M}_f \subset \{1, ..., M\}$, and the corresponding binning matrix $\tilde{\mathbf{B}}_f \in \{0,1\}^{\tilde{M} \times M}$ extracts these samples from a vector of length $M$.
-The full measurement vector $\mathbf{b} \in \mathbb{C}^{\tilde{M}QN_\mathrm{frames}}$ concatenates all binned samples across coils and frames:
+The full model output vector, $\mathbf{B}\mathbf{b} \in \mathbb{C}^{\tilde{M}QN_\mathrm{frames}}$, concatenates all binned samples across coils and frames:
 \begin{equation} \label{eq:binned_data}
-    \begin{aligned}
-        \mathbf{b} = &\operatorname{vec} \left(
-        \begin{bmatrix}
-            \tilde{\mathbf{B}}_1 \\ \tilde{\mathbf{B}}_2 \\ \vdots \\ \tilde{\mathbf{B}}_{N_\mathrm{frames}}
-        \end{bmatrix}
-        \begin{bmatrix}
-            S_1(\mathbf{t}_1) & S_2(\mathbf{t}_1) & ... & S_Q(\mathbf{t}_1) \\
-            S_1(\mathbf{t}_2) & S_2(\mathbf{t}_2) & ... & S_Q(\mathbf{t}_2) \\
-            \vdots & \vdots & \ddots & \vdots \\
-            S_1(\mathbf{t}_M) & S_2(\mathbf{t}_M) & ... & S_Q(\mathbf{t}_M) \\
-        \end{bmatrix}
-        \right) \\
-        = & \underbrace{\left( \mathbf{I}_Q \otimes \begin{bmatrix}
-            \tilde{\mathbf{B}}_1 \\ \tilde{\mathbf{B}}_2 \\ \vdots \\ \tilde{\mathbf{B}}_{N_\mathrm{frames}}
-        \end{bmatrix} \right)}_{\mathbf{B}}
-        \operatorname{vec} \left(
-        \underbrace{\begin{bmatrix}
-            S_1(\mathbf{t}_1) & S_2(\mathbf{t}_1) & ... & S_Q(\mathbf{t}_1) \\
-            S_1(\mathbf{t}_2) & S_2(\mathbf{t}_2) & ... & S_Q(\mathbf{t}_2) \\
-            \vdots & \vdots & \ddots & \vdots \\
-            S_1(\mathbf{t}_M) & S_2(\mathbf{t}_M) & ... & S_Q(\mathbf{t}_M) \\
-        \end{bmatrix}}_{\mathbf{s}}
-        \right)
-    \end{aligned}
+    \mathbf{B}\mathbf{b}
+    = \underbrace{\left( \mathbf{I}_Q \otimes \begin{bmatrix}
+        \tilde{\mathbf{B}}_1 \\ \tilde{\mathbf{B}}_2 \\ \vdots \\ \tilde{\mathbf{B}}_{N_\mathrm{frames}}
+    \end{bmatrix} \right)}_{\mathbf{B}}
+    \ \underbrace{\operatorname{vec} \left(
+    \begin{bmatrix}
+        S_1(\mathbf{t}_1) & S_2(\mathbf{t}_1) & ... & S_Q(\mathbf{t}_1) \\
+        S_1(\mathbf{t}_2) & S_2(\mathbf{t}_2) & ... & S_Q(\mathbf{t}_2) \\
+        \vdots & \vdots & \ddots & \vdots \\
+        S_1(\mathbf{t}_M) & S_2(\mathbf{t}_M) & ... & S_Q(\mathbf{t}_M) \\
+    \end{bmatrix}
+    \right)}_{\mathbf{b}}
 \end{equation}
-The binning structure is illustrated for a simple example in Fig. \ref{fig:binning}.
+The binning structure is illustrated for a toy example in Fig. \ref{fig:binning}.
 \begin{figure}[H]
     \centering
     \includegraphics[width=1\linewidth]{figures/fig_binning.png}
     \captionsetup{width=0.85\linewidth}
     \caption{
         Binning process, illustrated for a toy example ($M=10,Q=1,\tilde{M}=4,N_\mathrm{frames}$).
-        Given sample index sets for each frame, $\mathcal{M}_1,\mathcal{M}_2,\mathcal{M}_3$, each corresponding binning matrix extracts the samples from the chronologically acquired measurement vector, $\mathbf{s}$.
-        Then, all binned samples are concatenated in $\mathbf{b}$.
+        Given sample index sets for each frame, $\mathcal{M}_1,\mathcal{M}_2,\mathcal{M}_3$, each corresponding binning matrix extracts the samples from the chronologically acquired measurement vector, $\mathbf{b}$.
+        Then, all binned samples are concatenated in $\mathbf{Bb}$.
     }
     \label{fig:binning}
 \end{figure}
 
-This construction enables any arbitrary binning or view-sharing strategy while ensuring that the measurement vector $\mathbf{b}$ reflects any overlap or redundancy.
+This construction enables any arbitrary binning or view-sharing strategy while ensuring that the model reflects any overlap or redundancy in measurements.
 
 \subsection{Binned Acquisition Model} \label{sec:binned_acquisition_model}
 The forward acquisition and binning process can be modeled in discrete form as:
 \begin{equation} \label{eq:discrete_fwd}
-    \mathbf{b} = \mathbf{A}\mathbf{x} + \mathbf{B}\eta + \zeta
+    \mathbf{B}\mathbf{b} = \mathbf{A}\mathbf{x} + \mathbf{B}\eta + \zeta
 \end{equation}
-$\mathbf{x} \in \mathbb{C}^{NN_\mathrm{frames}}$ denotes the vectorized dynamic image timeseries, where $N$ is the number of voxels to reconstruct.
+$\mathbf{x} \in \mathbb{C}^{NN_\mathrm{frames}}$ denotes the vectorized dynamic image timeseries, which stacks each frame-wise image vector, $\tilde{\mathbf{x}}_f \in \mathbb{C}^N$, where $N$ is the number of voxels to reconstruct:
+\begin{equation*}
+    \mathbf{x} = \begin{bmatrix} \tilde{\mathbf{x}}_1 \\ \tilde{\mathbf{x}}_2 \\ \vdots \\ \tilde{\mathbf{x}}_{N_\mathrm{frames}} \end{bmatrix}
+\end{equation*}
 
 $\mathbf{A} \in \mathbb{C}^{\tilde{M}QN_\mathrm{frames} \times NN_\mathrm{frames}}$ denotes the dynamic acquisition model which can be formulated as a block-diagonal matrix:
 \begin{equation*}
@@ -114,7 +106,7 @@ $\mathbf{A} \in \mathbb{C}^{\tilde{M}QN_\mathrm{frames} \times NN_\mathrm{frames
 \end{equation*}
 where $\tilde{\mathbf{A}}_f \in \mathbb{C}^{\tilde{M}Q \times N}$ is the acquisition operator for frame $f$ reflecting a discretized form of Eq. \ref{eq:signal_eq} on the $N$-voxel discrete grid corresponding to $\mathbf{x}$, including coil sensitivity encoding and Fourier encoding at k-space coordinates $\{\vec{\omega}(\mathbf{t}_m)\}_{m \in \mathcal{M}_f}$.
 
-By construction, the forward model $\mathbf{A}\mathbf{x}$ predicts the measurements under the assumption that the object $\rho(\vec{r}, t)$ remains constant within each frame's time window, i.e., all samples assigned to a given frame are modeled with a single image representation $\mathbf{x}_f$.
+By construction, the forward model $\mathbf{A}\mathbf{x}$ predicts the measurements under the assumption that the object $\rho(\vec{r}, t)$ remains constant within each frame's time window, i.e., all samples assigned to a given frame are modeled with a single image representation $\tilde{\mathbf{x}}_f$.
 In reality, the object often evolves dynamically during this interval, especially for large bin sizes or in tissues subject to rapid motion.
 
 This mismatch between the simplified, frame-wise model and the true time-varying object introduces a model error, denoted $\zeta$, which is referred to as physiological noise \cite{triantafyllou_2017}:
@@ -126,6 +118,20 @@ This mismatch between the simplified, frame-wise model and the true time-varying
         \zeta_{f,q,m} = & \int_\Gamma c_q(\vec{r}) \left[ \rho(\vec{r},\tau_f) - \rho(\vec{r},\mathbf{t}_m) \right] e^{-j \vec{\omega}(\mathbf{t}_m) \cdot \vec{r}} d \vec{r}
     \end{aligned}
 \end{equation}
+The model mismatch error effect is illustrated for a toy example in Fig. \ref{fig:zeta}.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\linewidth]{figures/fig_zeta.png}
+    \captionsetup{width=0.85\linewidth}
+    \caption{
+        Physiological noise model mismatch error, illustrated for a toy example (noiseless: $\eta = 0$, single channel: $Q=1$, constant $\vec{w}(t)$).
+        The underlying image $\rho(\vec{r},t)$ is dynamic, and thus the k-space signal measurements, $\tilde{\mathbf{B}}_f\mathbf{b}$, are also dynamic even though the k-space trajectory is not.
+        For frame $f$, $\tilde{\mathbf{x}}_f$ is assumed to represent the discretized object only at time $\tau_f$, so the modeled discrete signal $\tilde{\mathbf{A}}_f\tilde{\mathbf{x}}_f$ will be constant.
+        This discrepancy in constant modeled signal and dynamic true signal is accounted for by $\zeta$.
+    }
+    \label{fig:zeta}
+\end{figure}
+
 $\zeta$ is generally not measurable in practice.
 However, since $\zeta$ is formed from the aggregate effect of many small discrepancies, each arising from slight temporal offsets and spatial variations, the central limit theorem suggests that their sum can be well-approximated by a multivariate complex Gaussian random variable.
 Unlike homoscedastic thermal noise, we expect that the variance of $\zeta$ within each bin is likely higher for samples taken farther from the bin center, $\tau_f$, and that noise from nearby samples is likely to be correlated.
@@ -148,9 +154,9 @@ By Baye's Theorem:
 
 $p(\mathbf{b} |\mathbf{x})$ is called the likelihood function, which can be formed from the model in Eq. \ref{eq:discrete_fwd}:
 \begin{align*}
-    p(\mathbf{b} | \mathbf{x}) = &\mathbb{P} (\mathbf{b} =\mathbf{A}\mathbf{x} + \mathbf{B}\eta + \zeta) \\
-    = &\mathbb{P}(\mathbf{B} \eta + \zeta = \mathbf{b} -\mathbf{A}\mathbf{x}) \\
-    = &f_{\mathbf{B}\eta + \zeta} \left( \mathbf{b} - \mathbf{A}\mathbf{x} \right)
+    p(\mathbf{b} | \mathbf{x}) = &\mathbb{P} (\mathbf{B}\mathbf{b} =\mathbf{A}\mathbf{x} + \mathbf{B}\eta + \zeta) \\
+    = &\mathbb{P}(\mathbf{B} \eta + \zeta = \mathbf{B}\mathbf{b} -\mathbf{A}\mathbf{x}) \\
+    = &f_{\mathbf{B}\eta + \zeta} \left(\mathbf{B}\mathbf{b} - \mathbf{A}\mathbf{x} \right)
 \end{align*}
 where $f_{\mathbf{B}\eta + \zeta}(\cdot) = f_{\mathbf{B}\eta} \circledast f_\zeta (\cdot): \mathbb{C}^{\tilde{M}QN_\mathrm{frames}} \to [0,1]$ is the probability density function of $\mathbf{B}\eta + \zeta$.
 Since $\mathbf{B}\eta$ and $\zeta$ are both multivariate complex Gaussian, $\mathbf{B}\eta+\zeta$ is also multivariate complex Gaussian with covariance matrix:
@@ -158,23 +164,23 @@ Since $\mathbf{B}\eta$ and $\zeta$ are both multivariate complex Gaussian, $\mat
     \begin{aligned}
         \Sigma_{\mathbf{B}\eta+\zeta} = &\Sigma_{\mathbf{B}\eta}+\Sigma_\zeta \\
         = &\sigma_\epsilon^2\mathbf{B}\mathbf{B}^T +\Sigma_\zeta \\
-        = & \operatorname{Cov}(\mathbf{b} - \mathbf{A}\mathbf{x})
+        = & \operatorname{Cov}(\mathbf{B}\mathbf{b} - \mathbf{A}\mathbf{x})
     \end{aligned}
 \end{equation}
 Then:
 \begin{align*}
-    p(\mathbf{b} | \mathbf{x}) = &f_{\mathbf{B}\eta+\zeta} \left( \mathbf{b} - \mathbf{A}\mathbf{x} \right) \\
-    = & \frac{\exp\left[ - (\mathbf{b} - \mathbf{A}\mathbf{x})^H \Sigma_{\mathbf{B}\eta+\zeta} ^{-1}(\mathbf{b} - \mathbf{A}\mathbf{x})\right]}{(\pi)^{\tilde{M}QN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{B}\eta+\zeta}|}}
+    p(\mathbf{b} | \mathbf{x}) = &f_{\mathbf{B}\eta+\zeta} \left( \mathbf{Bb} - \mathbf{A}\mathbf{x} \right) \\
+    = & \frac{\exp\left[ - (\mathbf{Bb} - \mathbf{A}\mathbf{x})^H \Sigma_{\mathbf{B}\eta+\zeta} ^{-1}(\mathbf{Bb} - \mathbf{A}\mathbf{x})\right]}{(\pi)^{\tilde{M}QN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{B}\eta+\zeta}|}}
 \end{align*}
 
 $p(\mathbf{x})$ is called the prior probability density function.
 This term allows us to incorporate other known information about the image by assuming a distribution of $\mathbf{x}$.
-If no knowledge of the image is known, we can simply enforce a multivariate complex Gaussian prior, $\mathbf{x} \sim \mathcal{CN}(0,\Sigma_\mathbf{x})$ to better condition the problem.
+If no knowledge of the image is known, we can simply enforce a multivariate complex Gaussian prior, $\mathbf{x} \sim \mathcal{CN}(0,\sigma_\mathbf{x}^2\mathbf{I}_{NN_\mathrm{frames}})$ to better condition the problem.
 With this prior, solving Eq. \ref{eq:map_estimator} is equivalent to solving the Tikhonov-regularized Generalized Least Squares (GLS) problem (see proof in Appendix \ref{proofs}):
 \begin{equation} \label{eq:map_gls_sol}
     \mathbf{x}_\mathrm{MAP} = \underset{\mathbf{x}}{\operatorname{argmin}}\
-            \left\|\Sigma_{\mathbf{B}\eta + \zeta}^{-1/2}(\mathbf{b} - \mathbf{A}\mathbf{x})\right\|_2^2
-            + \left\|\Sigma_{\mathbf{x}}^{-1/2}\mathbf{x}\right\|_2^2
+            \left\|\Sigma_{\mathbf{B}\eta + \zeta}^{-1/2}(\mathbf{Bb} - \mathbf{A}\mathbf{x})\right\|_2^2
+            + \frac{1}{\sigma_{\mathbf{x}}^2}\left\|\mathbf{x}\right\|_2^2
 \end{equation}
 This solution is robust to any artibrary binning strategy and is statistically optimal given a good estimate for $\Sigma_{\mathbf{B}\eta+\zeta}$ (we will discuss approaches for estimating the covariance in Section \ref{sec:estimating_noise_covariance}).
 Additionally, it is easily adaptable to other priors for more complex regularization techniques.
@@ -213,31 +219,37 @@ The Tornado filter can be implemented as a k-space radius-dependent aperture fun
 Despite their utility, a limitation of traditional view-sharing is that all samples within a bin are weighted equally, regardless of their temporal proximity to the frame’s reference time $\tau_f$.
 This constrains the window aperture in order to avoid excessive blurring.
 By explicitly modeling the covariance of physiological noise, $\Sigma_\zeta$, our framework captures the increased variance for samples farther from the frame center.
-Incorporating $\Sigma_\zeta$ into the MAP estimator (Eq.~\ref{eq:map_gls_sol}) allows downweighting of measurements with greater expected mismatch, so larger window apertures can be used to improve the k-space coverage of each frame without sacrificing temporal sharpness.
+Incorporating $\Sigma_\zeta$ into the MAP estimator (Eq.~\ref{eq:map_gls_sol}) allows downweighting of measurements with greater expected mismatch, so larger window apertures can be used to improve the k-space coverage of each frame without sacrificing as much temporal sharpness.
 
 \subsection{Estimating Noise Covariance} \label{sec:estimating_noise_covariance}
 
 \subsubsection{Residual Covariance Update Approach}
-The most general approach would consider any arbitrary noise covariance matrix, $\Sigma_{\mathbf{B}\eta + \zeta}$.
-If the covariance is unknown, we can solve the problem using gradient methods, and updating the covariance at each iteration based on the residual.
-I.e.:
+The most general and data-accurate approach to the problem would consider any arbitrary noise covariance matrix, $\Sigma_{\mathbf{B}\eta + \zeta}$ under the constraints:
+\begin{align}
+    \Sigma_{\mathbf{B}\eta} \propto &\mathbf{B}\mathbf{B}^T \label{constraint:cov_beta} \\
+    (\Sigma_\zeta)_{m,m} = &0, \quad \forall m \in \{m: t_m \in \{\tau_f\}_f^{N_\mathrm{frames}}\} \label{constraint:cov_zeta}
+\end{align}
+The first constraint in Eq. \ref{constraint:cov_beta} enforces homoscedasticity in the thermal noise component and to account for the sample overlap.
+The second constraint in Eq. \ref{constraint:cov_zeta} ensures that the model is tuned to weight each solution around the nominal time points $\tau_f$, by enforcing $\zeta = 0$ at these points.
 
+If the covariance is unknown, we can jointly estimate the covariance and image timeseries using the following constrained optimization problem:
+\begin{equation*}
+    \begin{aligned}
+        \mathbf{x}_* = &\underset{\mathbf{x}}{\operatorname{argmin}} &\min_{\Sigma_{\mathbf{B}\eta + \zeta}}
+        \left\|\Sigma_{\mathbf{B}\eta + \zeta}^{-1/2}(\mathbf{Bb} - \mathbf{A}\mathbf{x})\right\|_2^2
+            + \frac{1}{\sigma_{\mathbf{x}}^2}\left\|\mathbf{x}\right\|_2^2 \\
+            & \text{\bf{s.t.}} & \Sigma_{\mathbf{B}\eta + \zeta} = \Sigma_{\mathbf{B}\eta} + \Sigma_{\zeta} \\
+            &&  \Sigma_{\mathbf{B}\eta} \propto \mathbf{B}\mathbf{B}^T \\
+            && (\Sigma_\zeta)_{m,m} = 0, \quad \forall m \in \{m: t_m \in \{\tau_f\}_f^{N_\mathrm{frames}}\} 
+    \end{aligned}
+\end{equation*}
 
-However, the Covariance Update method is slow to converge.
-We can estimate the noise covariance, or at least find an initial estimate using much simpler empirical techniques.
+\red{computing the exact covariance matrix would be the most statistically accurate approach.
+however, 1. it is an extremely ill-posed problem, and 2. we might want to allow some degree of model mismatch anyways in order to increase the contribution of far-away k-space samples}
 
 \subsubsection{Navigator Approach}
 
 \subsubsection{Signal Informed Approach}
-
-\subsection{Uncertainty Quantification}
-Uncertainty quantification (UQ) plays a critical role in MRI research by enabling meaningful statistical analysis of reconstructed images. In clinical practice, knowing the degree of uncertainty can inform more confident diagnoses and guide decisions for follow-up analyses or repeat scans.
-However, many accelerated reconstruction techniques, such as compressed sensing, rely on complex regularization schemes and nonlinear optimization, making explicit calculation of posterior covariance challenging. Such cases often demand computationally intensive methods like Markov Chain Monte Carlo (MCMC) sampling to estimate uncertainty.
-In contrast, our statistical framework employs a simple Tikhonov regularizer, which permits analytic derivation of uncertainty at every reconstructed voxel and time frame. The posterior covariance matrix of the image estimate can be calculated explicitly (see Appendix~\ref{proofs} for derivation) as:
-\begin{equation} \label{eq:posterior_covariance}
-    \Sigma_{\mathbf{x}|\mathbf{b}} = \left(\mathbf{A}^H(\sigma_\epsilon^2\mathbf{B}\mathbf{B}^T + \Sigma_\zeta)^{-1}\mathbf{A} + \frac{1}{\sigma_\mathbf{x}^2}\mathbf{I}_{NN_\mathrm{frames}}\right)^{-1}
-\end{equation}
-Here, the diagonal elements of $\Sigma_{\mathbf{x}|\mathbf{b}}$ reflect the posterior variance for each voxel and time frame, providing a spatially and temporally resolved map of reconstruction uncertainty.
 
 \subsection{Practical Considerations}
 \subsubsection{Frame-wise Parallelization}
@@ -247,6 +259,11 @@ Another major advantage of the
 (i.e. FBP, DCF-NUFFT with the correct weighting for fast recon applications such as real-time)
 
 \subsubsection{Matrix-free Implementation}
+
+\subsection{Uncertainty Quantification}
+Uncertainty quantification (UQ) plays a critical role in MRI research by enabling meaningful statistical analysis of reconstructed images. In clinical practice, knowing the degree of uncertainty can inform more confident diagnoses and guide decisions for follow-up analyses or repeat scans.
+However, many accelerated reconstruction techniques, such as compressed sensing, rely on complex regularization schemes and nonlinear optimization, making explicit calculation of posterior covariance challenging. Such cases often demand computationally intensive methods like Markov Chain Monte Carlo (MCMC) sampling to estimate uncertainty.
+In contrast, our statistical framework employs a simple Tikhonov regularizer, which permits analytic derivation of uncertainty at every reconstructed voxel and time frame. The posterior covariance matrix of the image estimate can be calculated explicitly (see Appendix~\ref{proofs} for derivation) as:
 
 \section{Methods}
 \subsection{Virtual Phantom Simulation Experiments}
@@ -274,22 +291,22 @@ Another major advantage of the
             + \log p(\mathbf{x}) \quad \text{(since $\log(
             \cdot)$ is monotonically increasing)} \\
             = & \underset{\mathbf{x}}{\operatorname{argmax}}\
-            \log \frac{\exp\left[ - (\mathbf{b} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{b} - \mathbf{A}\mathbf{x})\right]}{(\pi)^{\tilde{M}QN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{B}\eta + \zeta} |}}
+            \log \frac{\exp\left[ - (\mathbf{Bb} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{Bb} - \mathbf{A}\mathbf{x})\right]}{(\pi)^{\tilde{M}QN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{B}\eta + \zeta} |}}
             + \log \frac{\exp\left[ - \mathbf{x}^H\Sigma_{\mathbf{x}}^{-1}\mathbf{x} \right]}{(\pi)^{NN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{x}} |}} \\
             = & \underset{\mathbf{x}}{\operatorname{argmax}}\
-            \log \left( \exp\left[ - (\mathbf{b} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{b} - \mathbf{A}\mathbf{x})\right] \right) - \log \left( (\pi)^{\tilde{M}QN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{B}\eta + \zeta} |} \right) \\
+            \log \left( \exp\left[ - (\mathbf{Bb} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{Bb} - \mathbf{A}\mathbf{x})\right] \right) - \log \left( (\pi)^{\tilde{M}QN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{B}\eta + \zeta} |} \right) \\
             & + \log \left(\exp\left[ - \mathbf{x}^H\Sigma_{\mathbf{x}}^{-1}\mathbf{x} \right]\right) - \log \left((\pi)^{NN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{x}} |}\right) \\
             = & \underset{\mathbf{x}}{\operatorname{argmax}}\
-            \log \left( \exp\left[ - (\mathbf{b} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{b} - \mathbf{A}\mathbf{x})\right] \right)
+            \log \left( \exp\left[ - (\mathbf{Bb} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{Bb} - \mathbf{A}\mathbf{x})\right] \right)
             + \log \left(\exp\left[ - \mathbf{x}^H\Sigma_{\mathbf{x}}^{-1}\mathbf{x} \right]\right)\\
             = & \underset{\mathbf{x}}{\operatorname{argmax}}\
-            - (\mathbf{b} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{b} - \mathbf{A}\mathbf{x})
+            - (\mathbf{Bb} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{Bb} - \mathbf{A}\mathbf{x})
             - \mathbf{x}^H\Sigma_{\mathbf{x}}^{-1}\mathbf{x}\\
             = & \underset{\mathbf{x}}{\operatorname{argmin}}\
-            (\mathbf{b} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{b} - \mathbf{A}\mathbf{x})
+            (\mathbf{Bb} - \mathbf{A}\mathbf{x})^H\Sigma_{\mathbf{B}\eta + \zeta}^{-1}(\mathbf{Bb} - \mathbf{A}\mathbf{x})
             + \mathbf{x}^H\Sigma_{\mathbf{x}}^{-1}\mathbf{x}\\
             = & \underset{\mathbf{x}}{\operatorname{argmin}}\
-            \left\|\Sigma_{\mathbf{B}\eta + \zeta}^{-1/2}(\mathbf{b} - \mathbf{A}\mathbf{x})\right\|_2^2
+            \left\|\Sigma_{\mathbf{B}\eta + \zeta}^{-1/2}(\mathbf{Bb} - \mathbf{A}\mathbf{x})\right\|_2^2
             + \left\|\Sigma_{\mathbf{x}}^{-1/2}\mathbf{x}\right\|_2^2\\
         \end{aligned}
     \end{equation*}
