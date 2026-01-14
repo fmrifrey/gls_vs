@@ -82,6 +82,15 @@ The binning structure is illustrated for a toy example in Fig. \ref{fig:binning}
     }
     \label{fig:binning}
 \end{figure}
+In this work, we will also use the inverse binning process.
+The structure of $\mathbf{B}^\dagger$, where $^\dagger$ denotes the Moore-Penrose pseudoinverse, is simple to construct (proof in Appendix \ref{proofs}):
+\begin{equation*}
+    \mathbf{B}^\dagger = \operatorname{diag} \left(\mathbf{B}^T\mathbf{1}_{\tilde{M}N_\mathrm{frames}}\right)^{-1}\mathbf{B}^T \\
+\end{equation*}
+This is equivalent to dividing each row in $\mathbf{B}^T$ by its sum.
+Intuitively, the inverse binning operator computes each unbinned sample value as an average of its corresponding values in each bin. 
+This calculation assumes that all samples belong to a bin (i.e. $\exists f: m \in \mathcal{M}_f\ \forall m = 1,...,M$) so that the above diagonal matrix can be inverted.
+If this is not the case, we can simply remove the unrepresented samples.
 
 This construction enables any arbitrary binning or view-sharing strategy while ensuring that the model reflects any overlap or redundancy in measurements.
 
@@ -158,6 +167,7 @@ $p(\mathbf{b} |\mathbf{x})$ is called the likelihood function, which can be form
     = &\mathbb{P}(\eta + \mathbf{B}^\dagger \zeta = \mathbf{b} - \mathbf{B}^\dagger \mathbf{A}\mathbf{x})
 \end{align*}
 where $\dagger$ denotes the left Moore-Penrose pseudoinverse.
+
 Since $\eta$ and $\mathbf{B}^\dagger \zeta$ are both multivariate complex Gaussian, $\eta+\mathbf{B}^\dagger \zeta$ is also multivariate complex Gaussian with covariance matrix:
 \begin{equation} \label{eq:noise_covariance}
     \begin{aligned}
@@ -165,26 +175,21 @@ Since $\eta$ and $\mathbf{B}^\dagger \zeta$ are both multivariate complex Gaussi
         = & \operatorname{Cov}(\mathbf{b} - \mathbf{B}^\dagger \mathbf{A}\mathbf{x})
     \end{aligned}
 \end{equation}
-Then:
-\red{FIX
+Then, under the assumption that $\Sigma_{\eta+\mathbf{B}^\dagger \zeta}$ is non-singular:
 \begin{align*}
-    p(\mathbf{b} | \mathbf{x}) = &f_{\mathbf{B}\eta+\zeta} \left( \mathbf{Bb} - \mathbf{A}\mathbf{x} \right) \\
-    = & \frac{\exp\left[ - (\mathbf{Bb} - \mathbf{A}\mathbf{x})^H \Sigma_{\mathbf{B}\eta+\zeta} ^{\dagger}(\mathbf{Bb} - \mathbf{A}\mathbf{x})\right]}{(\pi)^{\tilde{M}QN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{B}\eta+\zeta}|}}
+    p(\mathbf{b} | \mathbf{x}) = &f_{\eta+ \mathbf{B}^\dagger \zeta} \left( \mathbf{b} - \mathbf{B}^\dagger \mathbf{A}\mathbf{x} \right) \\
+    = & \frac{\exp\left[ - (\mathbf{b} - \mathbf{B}^\dagger \mathbf{A}\mathbf{x})^H \Sigma_{\eta+\mathbf{B}^\dagger \zeta} ^{-1}(\mathbf{b} - \mathbf{B}^\dagger \mathbf{A}\mathbf{x})\right]}{(\pi)^{\tilde{M}QN_\mathrm{frames}} \det{ |\Sigma_{\eta+ \mathbf{B}^\dagger \zeta}|}}
 \end{align*}
-}
-where $\dagger$ denotes the Moore-Penrose Pseudoinverse.
 
 $p(\mathbf{x})$ is called the prior probability density function.
 This term allows us to incorporate other known information about the image by assuming a distribution of $\mathbf{x}$.
 If no knowledge of the image is known, we can simply enforce a multivariate complex Gaussian prior, $\mathbf{x} \sim \mathcal{CN}(0,\sigma_\mathbf{x}^2\mathbf{I}_{NN_\mathrm{frames}})$ to better condition the problem.
 With this prior, solving Eq. \ref{eq:map_estimator} is equivalent to solving the Tikhonov-regularized Generalized Least Squares (GLS) problem (see proof in Appendix \ref{proofs}):
-\red{
 \begin{equation} \label{eq:map_gls_sol}
     \mathbf{x}_\mathrm{MAP} = \underset{\mathbf{x}}{\operatorname{argmin}}\
-            \left\|(\Sigma_{\mathbf{B}\eta + \zeta}^\dagger)^{1/2}(\mathbf{Bb} - \mathbf{A}\mathbf{x})\right\|_2^2
-            + \frac{1}{\sigma_{\mathbf{x}}^2}\left\|\mathbf{x}\right\|_2^2
+        \left\|\Sigma_{\eta + \mathbf{B}^\dagger \zeta}^{-1/2}(\mathbf{b} - \mathbf{B}^\dagger \mathbf{A}\mathbf{x})\right\|_2^2
+        + \frac{1}{\sigma_{\mathbf{x}}^2}\left\|\mathbf{x}\right\|_2^2
 \end{equation}
-}
 This solution is robust to any artibrary binning strategy and is statistically optimal given a good estimate for $\Sigma_{\eta + \mathbf{B}^\dagger \zeta}$ (we will discuss approaches for estimating the covariance in Section \ref{sec:estimating_noise_covariance}).
 Additionally, it is easily adaptable to other priors for more complex regularization techniques.
 
@@ -195,15 +200,15 @@ However, as the bin size (aperture) increases, dynamic changes in the object are
 
 Using a basic binning stategy, k-space samples can be selected using a simple time-based window for each frame $f$:
 \begin{equation*}
-    \mathcal{M}_f = \left\{m: |\tau_f - \mathbf{t}_m| \leq \frac{1}{2} a \right\}, \quad f = 1, \ldots, N_\mathrm{frames}
+    \mathcal{M}_f = \left\{m: |\mathbf{t}_m - \tau_f| \leq \frac{1}{2} a \right\}, \quad f = 1, \ldots, N_\mathrm{frames}
 \end{equation*}
 where $a$ denotes the window aperture in units of time.
 
 In variable-density k-space acquisitions, it may be advantageous to adapt the window aperture based on k-space position.
 For example, in radial imaging, where sampling density increases near the k-space center, a k-space radius-dependent aperture can be used:
-\begin{equation*}
-    \mathcal{M}_f = \left\{m: |\tau_f - \mathbf{t}_m| \leq \frac{1}{2}a\left(|\vec{\omega}(\mathbf{t}_m)|\right) \right\}, \quad f = 1, \ldots, N_\mathrm{frames}
-\end{equation*}
+\begin{equation} \label{eq:binning_stategy}
+    \mathcal{M}_f = \left\{m: |\mathbf{t}_m - \tau_f| \leq \frac{1}{2}a\left(\|\vec{\omega}(\mathbf{t}_m - \tau_f)\|_2\right) \right\}, \quad f = 1, \ldots, N_\mathrm{frames}
+\end{equation}
 Here, the aperture $a(\cdot): [0,\pi]^{3} \to [0,1]$ is a function of k-space radius.
 
 \cite{barger_2002} proposed a Tornado-shaped filter for filtered-back projection (FBP)-based view sharing reconstruction, which uses a smooth transition from narrow to wide windows, helping maintain temporal fidelity in the densely sampled center region while increasing the effective sampling in under-sampled outer regions of k-space.
@@ -226,42 +231,23 @@ Incorporating $\Sigma_\zeta$ into the MAP estimator (Eq.~\ref{eq:map_gls_sol}) a
 
 \subsection{Estimating Noise Covariance} \label{sec:estimating_noise_covariance}
 
-\subsubsection{Residual Covariance Update Approach}
-The most general and data-accurate approach to the problem would consider any arbitrary noise covariance matrix, $\Sigma_{\mathbf{B}\eta + \zeta}$ under the constraints:
-\begin{align}
-    \Sigma_{\mathbf{B}\eta} \propto &\mathbf{B}\mathbf{B}^T \label{constraint:cov_beta} \\
-    (\Sigma_\zeta)_{m,m} = &0, \quad \forall m \in \{m: t_m \in \{\tau_f\}_f^{N_\mathrm{frames}}\} \label{constraint:cov_zeta}
-\end{align}
-The first constraint in Eq. \ref{constraint:cov_beta} enforces homoscedasticity in the thermal noise component and to account for the sample overlap.
-The second constraint in Eq. \ref{constraint:cov_zeta} ensures that the model is tuned to weight each solution around the nominal time points $\tau_f$, by enforcing $\zeta = 0$ at these points.
-
-If the covariance is unknown, we can jointly estimate the covariance and image timeseries using the following constrained optimization problem:
-\begin{equation*}
-    \begin{aligned}
-        \mathbf{x}_* = &\underset{\mathbf{x}}{\operatorname{argmin}} &\min_{\Sigma_{\mathbf{B}\eta + \zeta}}
-        \left\|\Sigma_{\mathbf{B}\eta + \zeta}^{-1/2}(\mathbf{Bb} - \mathbf{A}\mathbf{x})\right\|_2^2
-            + \frac{1}{\sigma_{\mathbf{x}}^2}\left\|\mathbf{x}\right\|_2^2 \\
-            & \text{\bf{s.t.}} & \Sigma_{\mathbf{B}\eta + \zeta} = \Sigma_{\mathbf{B}\eta} + \Sigma_{\zeta} \\
-            &&  \Sigma_{\mathbf{B}\eta} \propto \mathbf{B}\mathbf{B}^T \\
-            && (\Sigma_\zeta)_{m,m} = 0, \quad \forall m \in \{m: t_m \in \{\tau_f\}_f^{N_\mathrm{frames}}\} 
-    \end{aligned}
-\end{equation*}
-
-\red{computing the exact covariance matrix would be the most statistically accurate approach.
-however, 1. it is an extremely ill-posed problem, and 2. we might want to allow some degree of model mismatch anyways in order to increase the contribution of far-away k-space samples}
-
 \subsubsection{Navigator Approach}
 
 \subsubsection{Signal Informed Approach}
 
 \subsection{Practical Considerations}
+
+\subsubsection{Matrix-free Implementation}
+In most dynamic MRI contexts, we expect to handle very large problem sizes.
+Explicit computations of $\mathbf{B}^\dagger$ and $\Sigma_{\eta + \mathbf{B}^\dagger \zeta}^{-1/2}$ may be infeasible in these cases.
+However, we can determine the structure of both matrices in order to implement matrix-free operations.
+
+
 \subsubsection{Frame-wise Parallelization}
 Another major advantage of the 
 
 \subsubsection{Inverse Approximations}
 (i.e. FBP, DCF-NUFFT with the correct weighting for fast recon applications such as real-time)
-
-\subsubsection{Matrix-free Implementation}
 
 \subsection{Uncertainty Quantification}
 Uncertainty quantification (UQ) plays a critical role in MRI research by enabling meaningful statistical analysis of reconstructed images. In clinical practice, knowing the degree of uncertainty can inform more confident diagnoses and guide decisions for follow-up analyses or repeat scans.
@@ -274,16 +260,72 @@ In contrast, our statistical framework employs a simple Tikhonov regularizer, wh
 
 \section{Appendix}
 \subsection{Proofs} \label{proofs}
-\begin{proof}[Derivation of $\mathbf{B}\eta$ expectation and covariance (Sec. \ref{sec:binned_acquisition_model})]
-    \begin{align*}
-        \mathbb{E}[\mathbf{B}\eta] = &\mathbf{B}\mathbb{E}[\eta] = \mathbf{0} \\
-        \operatorname{Cov} (\mathbf{B}\eta) = &\mathbb{E}[(\mathbf{B}\eta)(\mathbf{B}\eta)^H] + \mathbb{E}[\mathbf{B}\eta]\mathbb{E}[\mathbf{B}\eta]^H \\
-        = & \mathbf{B}\mathbb{E}[\eta\eta^H]\mathbf{B}^T + \mathbf{B}\mathbb{E}[\eta](\mathbf{B}\mathbb{E}[\eta])^H\\
-        = & \mathbf{B}(\mathbb{E}[\eta\eta^H] + \mathbb{E}[\eta]\mathbb{E}[\eta]^H)\mathbf{B}^T \\
-        = & \mathbf{B}(\sigma_\epsilon^2 \mathbf{I}_{MQ})\mathbf{B}^T 
-        = \sigma_\epsilon^2\mathbf{B}\mathbf{B}^T
-    \end{align*}
+\begin{proof}[Structure of $\mathbf{B}^\dagger$]
+
+    Let us decompose $\mathbf{B}$ into its column vectors, $\mathbf{B}_{:,m}, m = 1,...,M$:
+    \begin{equation*}
+        \mathbf{B} = \begin{bmatrix} (\mathbf{B})_{:,1} &(\mathbf{B})_{:,2} &... &(\mathbf{B})_{:,M} \end{bmatrix} 
+    \end{equation*}
+    Since each row can only contain a single $1$, and the rest $0$, it is simple to see that the columns of $B$ are orthogonal: $\mathbf{B}_{:,1} \perp \mathbf{B}_{:,2} \perp ... \perp \mathbf{B}_{:,M}$.
+    Then, by normalizing the columns we can easily derive a valid singular value decomposition (SVD):
+    \begin{equation*}
+        \mathbf{B} = 
+        \underbrace{\begin{bmatrix} \frac{(\mathbf{B})_{:,1}}{\|(\mathbf{B})_{:,1}\|_2} & \frac{(\mathbf{B})_{:,2}}{\|(\mathbf{B})_{:,2}\|_2} &... & \frac{(\mathbf{B})_{:,M}}{\|(\mathbf{B})_{:,M}\|_2} \end{bmatrix}}_{\mathbf{U}}
+        \underbrace{\begin{bmatrix}
+            \|(\mathbf{B})_{:,1}\|_2 \\
+            & \|(\mathbf{B})_{:,2}\|_2 \\
+            & & \ddots \\
+            & & & \|(\mathbf{B})_{:,M}\|_2 \\
+        \end{bmatrix}
+        }_{\Sigma}
+        \underbrace{\mathbf{I}_{\tilde{M}N_\mathrm{frames}}}_{\mathbf{V}^T}
+    \end{equation*}
+    Thus, we can compute the pseudoinverse as:
+    \begin{equation*}
+        \begin{aligned}
+            \mathbf{B}^\dagger =& \mathbf{V}\Sigma^{-1}\mathbf{U}^T \\
+            = &
+            \mathbf{I}_{\tilde{M}N_\mathrm{frames}} 
+            \begin{bmatrix}
+            \|(\mathbf{B})_{:,1}\|_2 \\
+            & \|(\mathbf{B})_{:,2}\|_2 \\
+            & & \ddots \\
+            & & & \|(\mathbf{B})_{:,M}\|_2 \\
+            \end{bmatrix}^{-1}
+            \begin{bmatrix} \frac{(\mathbf{B})_{:,1}^T}{\|(\mathbf{B})_{:,1}\|_2} \\ \frac{(\mathbf{B})_{:,2}^T}{\|(\mathbf{B})_{:,2}\|_2} \\ \vdots \\ \frac{(\mathbf{B})_{:,M}^T}{\|(\mathbf{B})_{:,M}\|_2} \end{bmatrix}
+            \\
+            = & 
+            \begin{bmatrix}
+            \|(\mathbf{B})_{:,1}\|^2_2 \\
+            & \|(\mathbf{B})_{:,2}\|^2_2 \\
+            & & \ddots \\
+            & & & \|(\mathbf{B})_{:,M}\|^2_2 \\
+            \end{bmatrix}^{-1}
+            \begin{bmatrix} (\mathbf{B})_{:,1}^T \\ (\mathbf{B})_{:,2}^T \\ \vdots \\ (\mathbf{B})_{:,M}^T \end{bmatrix}
+        \end{aligned}
+    \end{equation*}
+    Further, since each column vector only contains values of $1$ and $0$, $\|(\mathbf{B})_{:,m}\|_2^2 = \|(\mathbf{B})_{:,m}\|_1 = \mathbf{1}_{\tilde{M}N_\mathrm{frames}}^T(\mathbf{B})_{:,m}$ (row summation).
+    Thus:
+    \begin{equation*}
+        \begin{aligned}
+            \mathbf{B}^\dagger =& 
+            \begin{bmatrix}
+            \mathbf{1}_{\tilde{M}N_\mathrm{frames}}^T(\mathbf{B})_{:,1} \\
+            & \mathbf{1}_{\tilde{M}N_\mathrm{frames}}^T(\mathbf{B})_{:,2} \\
+            & & \ddots \\
+            & & & \mathbf{1}_{\tilde{M}N_\mathrm{frames}}^T(\mathbf{B})_{:,M} \\
+            \end{bmatrix}^{-1}
+            \mathbf{B}^T \\
+            = &
+            \operatorname{diag} \left(\mathbf{1}_{\tilde{M}N_\mathrm{frames}}^T\mathbf{B}
+            \right)^{-1}  \mathbf{B}^T \\
+            = &
+            \operatorname{diag} \left(\mathbf{B}^T\mathbf{1}_{\tilde{M}N_\mathrm{frames}}\right)^{-1} \mathbf{B}^T \\
+        \end{aligned}
+    \end{equation*}
+
 \end{proof}
+
 \begin{proof}[Derivation of GLS problem from MAP estimator (Eq. \ref{eq:map_gls_sol})]
     \begin{equation*}
         \begin{aligned}
@@ -311,13 +353,6 @@ In contrast, our statistical framework employs a simple Tikhonov regularizer, wh
             = & \underset{\mathbf{x}}{\operatorname{argmin}}\
             \left\|\Sigma_{\mathbf{B}\eta + \zeta}^{-1/2}(\mathbf{Bb} - \mathbf{A}\mathbf{x})\right\|_2^2
             + \left\|\Sigma_{\mathbf{x}}^{-1/2}\mathbf{x}\right\|_2^2\\
-        \end{aligned}
-    \end{equation*}
-\end{proof}
-\begin{proof} [Derivation of posterior covariance (Eq. \ref{eq:posterior_covariance})]
-    \begin{equation*}
-        \begin{aligned}
-            \Sigma_{\mathbf{x}|\mathbf{b}} = & \mathbb{E}[\mathbf{x} | \mathbf{b}]
         \end{aligned}
     \end{equation*}
 \end{proof}
