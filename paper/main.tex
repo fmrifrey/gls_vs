@@ -163,22 +163,20 @@ By Baye's Theorem:
 $p(\mathbf{b} |\mathbf{x})$ is called the likelihood function, which can be formed from the model in Eq. \ref{eq:discrete_fwd}:
 \begin{align*}
     p(\mathbf{b} | \mathbf{x}) = &\mathbb{P} (\mathbf{B}\mathbf{b} =\mathbf{A}\mathbf{x} + \mathbf{B}\eta + \zeta) \\
-    = &\mathbb{P} (\mathbf{b} = \mathbf{B}^\dagger \mathbf{A}\mathbf{x} + \eta + \mathbf{B}^\dagger \zeta) \\
-    = &\mathbb{P}(\eta + \mathbf{B}^\dagger \zeta = \mathbf{b} - \mathbf{B}^\dagger \mathbf{A}\mathbf{x})
+    = &\mathbb{P}(\mathbf{B} \eta + \zeta = \mathbf{B} \mathbf{b} - \mathbf{A}\mathbf{x})
 \end{align*}
-where $\dagger$ denotes the left Moore-Penrose pseudoinverse.
 
-Since $\eta$ and $\mathbf{B}^\dagger \zeta$ are both multivariate complex Gaussian, $\eta+\mathbf{B}^\dagger \zeta$ is also multivariate complex Gaussian with covariance matrix:
+Since $\mathbf{B} \eta$ and $\zeta$ are both multivariate complex Gaussian, $\mathbf{B} \eta+\zeta$ is also multivariate complex Gaussian \red{(is this true if $\mathbf{B}\eta$ is singular??)} with covariance matrix:
 \begin{equation} \label{eq:noise_covariance}
     \begin{aligned}
-        \Sigma_{\eta+\mathbf{B}^\dagger \zeta} = &\Sigma_{\eta}+\mathbf{B}^\dagger \Sigma_\zeta (\mathbf{B}^\dagger)^H  \\
-        = & \operatorname{Cov}(\mathbf{b} - \mathbf{B}^\dagger \mathbf{A}\mathbf{x})
+        \Sigma_{\mathbf{B} \eta+ \zeta} = &\sigma_{\epsilon}^2 \mathbf{B} \mathbf{B}^T + \Sigma_\zeta  \\
+        = & \operatorname{Cov}(\mathbf{B} \mathbf{b} - \mathbf{A}\mathbf{x})
     \end{aligned}
 \end{equation}
-Then, under the assumption that $\Sigma_{\eta+\mathbf{B}^\dagger \zeta}$ is non-singular:
+Then, under the assumption that $\Sigma_{\mathbf{B} \eta+ \zeta}$ is non-singular:
 \begin{align*}
-    p(\mathbf{b} | \mathbf{x}) = &f_{\eta+ \mathbf{B}^\dagger \zeta} \left( \mathbf{b} - \mathbf{B}^\dagger \mathbf{A}\mathbf{x} \right) \\
-    = & \frac{\exp\left[ - (\mathbf{b} - \mathbf{B}^\dagger \mathbf{A}\mathbf{x})^H \Sigma_{\eta+\mathbf{B}^\dagger \zeta} ^{-1}(\mathbf{b} - \mathbf{B}^\dagger \mathbf{A}\mathbf{x})\right]}{(\pi)^{\tilde{M}QN_\mathrm{frames}} \det{ |\Sigma_{\eta+ \mathbf{B}^\dagger \zeta}|}}
+    p(\mathbf{b} | \mathbf{x}) = &f_{\mathbf{B} \eta+ \zeta} \left( \mathbf{B} \mathbf{b} - \mathbf{A}\mathbf{x} \right) \\
+    = & \frac{\exp\left[ - (\mathbf{B} \mathbf{b} - \mathbf{A}\mathbf{x})^H \Sigma_{\mathbf{B} \eta+ \zeta} ^{-1}(\mathbf{B} \mathbf{b} - \mathbf{A}\mathbf{x})\right]}{(\pi)^{\tilde{M}QN_\mathrm{frames}} \det{ |\Sigma_{\mathbf{B} \eta+ \zeta}|}}
 \end{align*}
 
 $p(\mathbf{x})$ is called the prior probability density function.
@@ -187,10 +185,10 @@ If no knowledge of the image is known, we can simply enforce a multivariate comp
 With this prior, solving Eq. \ref{eq:map_estimator} is equivalent to solving the Tikhonov-regularized Generalized Least Squares (GLS) problem (see proof in Appendix \ref{proofs}):
 \begin{equation} \label{eq:map_gls_sol}
     \mathbf{x}_\mathrm{MAP} = \underset{\mathbf{x}}{\operatorname{argmin}}\
-        \left\|\Sigma_{\eta + \mathbf{B}^\dagger \zeta}^{-1/2}(\mathbf{b} - \mathbf{B}^\dagger \mathbf{A}\mathbf{x})\right\|_2^2
+        \left\|\Sigma_{\mathbf{B} \eta + \zeta}^{-1/2}(\mathbf{B} \mathbf{b} - \mathbf{A}\mathbf{x})\right\|_2^2
         + \frac{1}{\sigma_{\mathbf{x}}^2}\left\|\mathbf{x}\right\|_2^2
 \end{equation}
-This solution is robust to any artibrary binning strategy and is statistically optimal given a good estimate for $\Sigma_{\eta + \mathbf{B}^\dagger \zeta}$ (we will discuss approaches for estimating the covariance in Section \ref{sec:estimating_noise_covariance}).
+This solution is robust to any arbitrary binning strategy and is statistically optimal given a good estimate for $\Sigma_{\mathbf{B}\eta + \zeta}$ (we will discuss approaches for estimating the covariance in Section \ref{sec:estimating_noise_covariance}).
 Additionally, it is easily adaptable to other priors for more complex regularization techniques.
 
 \subsection{View Sharing Strategies}
@@ -238,21 +236,16 @@ Incorporating $\Sigma_\zeta$ into the MAP estimator (Eq.~\ref{eq:map_gls_sol}) a
 \subsection{Practical Considerations}
 
 \subsubsection{Matrix-free Implementation}
-In most dynamic MRI contexts, we expect to handle very large problem sizes.
-Explicit computations of $\mathbf{B}^\dagger$ and $\Sigma_{\eta + \mathbf{B}^\dagger \zeta}^{-1/2}$ may be infeasible in these cases.
-However, we can determine the structure of both matrices in order to implement matrix-free operations.
 
 
 \subsubsection{Frame-wise Parallelization}
-Another major advantage of the 
+\red{(not sure if this is actually possible)}
 
 \subsubsection{Inverse Approximations}
-(i.e. FBP, DCF-NUFFT with the correct weighting for fast recon applications such as real-time)
+\red{(i.e. FBP, DCF-NUFFT with the correct weighting for fast recon applications such as real-time)}
 
 \subsection{Uncertainty Quantification}
-Uncertainty quantification (UQ) plays a critical role in MRI research by enabling meaningful statistical analysis of reconstructed images. In clinical practice, knowing the degree of uncertainty can inform more confident diagnoses and guide decisions for follow-up analyses or repeat scans.
-However, many accelerated reconstruction techniques, such as compressed sensing, rely on complex regularization schemes and nonlinear optimization, making explicit calculation of posterior covariance challenging. Such cases often demand computationally intensive methods like Markov Chain Monte Carlo (MCMC) sampling to estimate uncertainty.
-In contrast, our statistical framework employs a simple Tikhonov regularizer, which permits analytic derivation of uncertainty at every reconstructed voxel and time frame. The posterior covariance matrix of the image estimate can be calculated explicitly (see Appendix~\ref{proofs} for derivation) as:
+\red{(idea: by not using complicated regularizers to dealias, UQ should be easier)}
 
 \section{Methods}
 \subsection{Virtual Phantom Simulation Experiments}
